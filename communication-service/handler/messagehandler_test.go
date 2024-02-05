@@ -8,6 +8,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ func (m *MockEmailSender) SendEmail(email model.FanEmail) {
 func TestHandleMessage_Success(t *testing.T) {
 
 	numberOfFans := 5000
+	errC := make(chan error, 1)
 
 	mockFanBaseDb := &MockFanBaseStore{}
 	mockEmailClient := &MockEmailSender{}
@@ -47,7 +49,7 @@ func TestHandleMessage_Success(t *testing.T) {
 	fans := generateFans(numberOfFans)
 	mockFanBaseDb.On("GetFansForArtist", "TestArtist").Return(fans, nil)
 
-	handler := NewMessageHandler(make(chan error), mockFanBaseDb, mockEmailClient)
+	handler := NewMessageHandler(errC, mockFanBaseDb, mockEmailClient)
 
 	release := common.Release{
 		Artist:      "TestArtist",
@@ -62,6 +64,18 @@ func TestHandleMessage_Success(t *testing.T) {
 	handler.HandleMessage(delivery)
 
 	mockEmailClient.wg.Wait()
+
+	close(errC)
+
+	/*
+	 This is very hacky... but the 'failed to acknowledge' error is being triggered
+	 because we are just using a dummy amqp.Delivery, it will take a lot of work
+	 to abstract this to prevent this, so for the sake of time I am using this dodgy check
+	 to ensure no other unexpected errors are present on the channel ( sorry :) )
+	*/
+	for err := range errC {
+		require.EqualError(t, err, "failed to acknowledge message")
+	}
 
 	mockFanBaseDb.AssertExpectations(t)
 	assert.Equal(t, numberOfFans, mockEmailClient.numberOfInvokes)

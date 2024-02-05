@@ -2,7 +2,7 @@ package model
 
 import (
 	"fmt"
-	"time"
+	"github.com/matnich89/benefex/common/model"
 )
 
 const (
@@ -16,9 +16,7 @@ type Fan struct {
 
 type FanEmail struct {
 	Fan
-	Artist      string    `json:"artist"`
-	Title       string    `json:"album"`
-	ReleaseDate time.Time `json:"release_date"`
+	model.Release
 }
 
 func (f FanEmail) Message() string {

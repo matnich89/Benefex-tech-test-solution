@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	common "github.com/matnich89/benefex/common/model"
 	"github.com/matnich89/benefex/communcation/model"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -62,10 +63,8 @@ func (h *MessageHandler) HandleMessage(d amqp.Delivery) {
 			go func(fan model.Fan) {
 				defer wg.Done()
 				email := model.FanEmail{
-					Fan:         fan,
-					Artist:      release.Artist,
-					Title:       release.Title,
-					ReleaseDate: release.ReleaseDate,
+					Fan:     fan,
+					Release: release,
 				}
 
 				h.EmailClient.SendEmail(email)
@@ -74,5 +73,9 @@ func (h *MessageHandler) HandleMessage(d amqp.Delivery) {
 		}
 	} else {
 		log.Println("Release is already out, no need to notify the fanbase.")
+	}
+
+	if err := d.Ack(false); err != nil {
+		h.ErrC <- errors.New("failed to acknowledge message")
 	}
 }
