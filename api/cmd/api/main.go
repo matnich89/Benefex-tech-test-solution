@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/matnich89/benefex/common/model"
 	"github.com/matnich89/benefex/common/rabbitmq"
 	"log"
 	"net/http"
@@ -25,7 +26,7 @@ type queueClient struct {
 	errCh              chan<- error
 }
 
-func (q *queueClient) Send(ctx context.Context, r Release) {
+func (q *queueClient) Send(ctx context.Context, r model.Release) {
 	var wg sync.WaitGroup
 
 	var buf bytes.Buffer
@@ -135,7 +136,7 @@ func run(ctx context.Context) error {
 
 	errC := make(chan error)
 	sigC := make(chan os.Signal)
-	relC := make(chan Release)
+	relC := make(chan model.Release)
 
 	q, err := newConnectedQueueClient(rabbitMqUrl, errC)
 	if err != nil {
@@ -179,20 +180,20 @@ func runServer(addr string, hnd http.Handler) error {
 	return nil
 }
 
-func newHandler(relC chan<- Release) http.Handler {
+func newHandler(relC chan<- model.Release) http.Handler {
 	hnd := http.NewServeMux()
 	hnd.HandleFunc("/releases", releasesHandler(relC))
 	return hnd
 }
 
-func releasesHandler(relC chan<- Release) http.HandlerFunc {
+func releasesHandler(relC chan<- model.Release) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
 
-		var inp []Release
+		var inp []model.Release
 
 		if err := json.NewDecoder(r.Body).Decode(&inp); err != nil {
 			writeError(w, fmt.Errorf("cannot decode request: %w", err), http.StatusBadRequest)
@@ -225,17 +226,4 @@ func writeError(w http.ResponseWriter, err error, status int) {
 	if _, err := w.Write(b.Bytes()); err != nil {
 		log.Printf("cannot write response: %s", err.Error())
 	}
-}
-
-type Release struct {
-	Artist       string                `json:"artist"`
-	Title        string                `json:"title"`
-	Genre        string                `json:"genre"`
-	ReleaseDate  time.Time             `json:"releaseDate"`
-	Distribution []ReleaseDistribution `json:"distribution"`
-}
-
-type ReleaseDistribution struct {
-	Type string `json:"type"`
-	Qty  int64  `json:"qty"`
 }

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/matnich89/benefex/common/rabbitmq"
+	"github.com/matnich89/benefex/communcation/handler"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"os"
@@ -11,44 +13,45 @@ import (
 )
 
 type app struct {
-	conn      *amqp.Connection
-	ch        *amqp.Channel
-	queueName string
-	errC      chan error
-	sigC      chan os.Signal
+	conn       *amqp.Connection
+	ch         *amqp.Channel
+	queueName  string
+	msgHandler *handler.MessageHandler
+	errC       chan error
+	sigC       chan os.Signal
 }
 
-func newApp(rabbitUrl, queueName string, errC chan error) (*app, error) {
+func newApp(rabbitUrl string, msgHandler *handler.MessageHandler, queueName string, errC chan error) (*app, error) {
 	conn, err := rabbitmq.OpenConnection(rabbitUrl)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not conenct to rabbit mq %s", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create channel %s", err)
 	}
 
-	return &app{conn: conn, ch: ch, queueName: queueName, errC: errC, sigC: make(chan os.Signal, 1)}, nil
+	return &app{conn: conn, msgHandler: msgHandler, ch: ch, queueName: queueName, errC: errC, sigC: make(chan os.Signal, 1)}, nil
 }
 
-func (a *app) run() {
+func (a *app) run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err := rabbitmq.DeclareQueue(a.ch, a.queueName); err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("could not declare queue %s", err)
 	}
 
 	messageHandler := func(d amqp.Delivery) {
-		log.Println("message received will distribute to customers")
+		a.msgHandler.HandleMessage(d)
 	}
 
 	err := rabbitmq.ConsumeMessage(a.conn, a.queueName, messageHandler)
 
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("could not being consuming messages %s queue %s", a.queueName, err)
 	}
 
 	signal.Notify(a.sigC, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -71,4 +74,6 @@ func (a *app) run() {
 
 	<-ctx.Done()
 	log.Println("application stopping....")
+
+	return nil
 }

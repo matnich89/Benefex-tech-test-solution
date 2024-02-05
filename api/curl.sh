@@ -25,7 +25,19 @@ curl -v http://localhost:8080/releases --data '
     "artist": "Elon Dusk",
     "title": "Blockchain Bop (NFT Single)",
     "genre": "Spacecore",
-    "releaseDate": "2021-06-28T00:00:00Z"
-  }
+    "releaseDate": "2024-03-28T00:00:00Z"
+  },
+  {
+    "artist": "Epica",
+    "title": "A Bright Dystopia",
+    "genre": "Symphonic Metal",
+    "releaseDate": "2024-05-25T00:00:00Z"
+  },
+  {
+    "artist": "Mathew Nicholls",
+    "title": "Not Real Album",
+    "genre": "Mat Jam",
+    "releaseDate": "2024-06-20T00:00:00Z"
+   }
 ]
 '

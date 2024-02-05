@@ -1,6 +1,9 @@
 package main
 
 import (
+	"github.com/matnich89/benefex/communcation/client"
+	"github.com/matnich89/benefex/communcation/db"
+	"github.com/matnich89/benefex/communcation/handler"
 	"log"
 	"os"
 )
@@ -14,12 +17,21 @@ func main() {
 
 	errCh := make(chan error)
 
-	app, err := newApp(rabbitUrl, "communication", errCh)
+	database := db.NewFanbaseDB()
+
+	emailClient := client.StubEmailClient{}
+
+	msgHandler := handler.NewMessageHandler(errCh, database, &emailClient)
+
+	app, err := newApp(rabbitUrl, msgHandler, "communication", errCh)
 
 	if err != nil {
 		log.Fatalf("error creating app: %v", err)
 	}
 
-	app.run()
+	err = app.run()
 
+	if err != nil {
+		log.Fatalf("error running app: %v", err)
+	}
 }
