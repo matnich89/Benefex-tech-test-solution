@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      RABBITMQ_SERVER_URL: "amqp://guest:guest@rabbit:5672"
+
+  communication-service:
+    build:
+      context: .
+      dockerfile: ./communication-service/Dockerfile
+    environment:
+      RABBITMQ_SERVER_URL: "amqp://guest:guest@rabbit:5672"
+
+  distribution-service:
+    build:
+      context: .
+      dockerfile: ./distribution-service/Dockerfile
+    environment:
+      RABBITMQ_SERVER_URL: "amqp://guest:guest@rabbit:5672"
+
+
+  rabbit:
+    image: rabbitmq:3-management
+    ports:
+      - 5672:5672
+      - 15672:15672
