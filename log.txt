@@ -1,0 +1,41 @@
+commit 8eb43d492e51dd054b5c028c6ac6ae4b287d687d
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 21:17:36 2024 +0000
+
+    adding readme
+
+commit 0a751834fa9c38e970ece73477ecd6db2b40d7ba
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 19:56:02 2024 +0000
+
+    implemented business logic for distribution service, fixed communication messagehandler ( was not acknowledging messages)
+
+commit f205d4e6feb21cb5fe2100a3276b2aaaeb320c2d
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 19:02:14 2024 +0000
+
+    implemented business logic for communication service, with small basic test, moved Release struct into common as it is used by all the services updated curl sh to add some releases in the future....time for a break :)
+
+commit 3e940aa0dfef4d6859686a864e269246dd7b4a95
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 17:38:10 2024 +0000
+
+    implemented basic message consume in distribution and communication service with dummy handlers, updated go mods and docker file to use common as described in earlier commit, confirmed messages being consumed
+
+commit c807c65d5650308ffdd71935a71ea878dbe4f7fd
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 17:20:59 2024 +0000
+
+    setup api to publish messages to rabbitmq , tested locally, working , had to use replace in go mod and copy common directory into docker due to being unable to publish the module to a repostory
+
+commit cfd5ee9a2dfc2ed1fc6a024a23c1b960043a5908
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 17:03:14 2024 +0000
+
+    added common module for rabbitmq operations that will be needed by all of the services
+
+commit a0ea8c4dcf7efabe4db4481f28ccc4434ed7d61b
+Author: mathewnicholls <mathewnicholls@yandex.com>
+Date:   Mon Feb 5 16:40:40 2024 +0000
+
+    added stubs of the distribution and communicaton microservices, and also the starting point of the api service that was copied from starter code, added docker-compose and dockerfiles
