@@ -19,6 +19,26 @@ Before jumping into coding, I spent a bit of time mapping out my approach. Here'
 5. Dive into the specific business logic for both services.
 6. Do a final check and clean up. Unfortunately, time was a bit tight, so there might be a few loose ends.
 
+## Assumptions and Implementation Details
+
+### Fans Database, Email Client, and Distribution Clients
+
+In the development of this project, I made a few assumptions that shaped the implementation strategy, particularly concerning external dependencies like the fans database, email client, and distribution clients. Here's a brief overview:
+
+
+- **Fans Database**: I assumed that the database holding information about the fans (e.g., email addresses, preferences) is a basic stub. This means that while the database functionality is simulated or minimally implemented, it serves the purpose of integrating with the communication service for the sake of demonstrating the workflow without needing a full database setup.
+
+- **Email Client**: Similarly, the email client used for sending notifications to fans is assumed to be a simple stub. This approach allowed me to focus on the integration and message flow rather than the complexities of actual email delivery services. The email client's functionality is therefore simulated to show how emails would be sent out without connecting to a real email service provider.
+
+- **Distribution Clients**: The distribution service, responsible for managing the sending out of CDs and vinyls, interacts with distribution clients that are also assumed to be basic stubs. This means the actual process of managing inventory, packaging, and shipping is abstracted away, allowing the focus to remain on the service's role in the larger system.
+
+### Running the Project with Docker Compose
+
+When setting up and running the project using Docker, it's essential to ensure that any changes made to the Dockerfiles are reflected when you start the services. To achieve this, you should use the following Docker Compose command:
+
+```docker-compose up --build```
+
+
 ## Development Thoughts
 
 ### On Reusing Code (DRY)
