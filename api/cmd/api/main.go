@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/matnich89/benefex/common/rabbitmq"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,23 +19,104 @@ import (
 )
 
 type queueClient struct {
-	conn *amqp.Connection
+	conn               *amqp.Connection
+	communicationQueue string
+	distributionQueue  string
+	errCh              chan<- error
 }
 
 func (q *queueClient) Send(ctx context.Context, r Release) {
-	// TODO: implement me
+	var wg sync.WaitGroup
 
-	log.Printf(
-		"New release! %s: %s by %s - we should probably let some people know about it...",
-		r.ReleaseDate.Format("02 Jan 2006"),
-		r.Title,
-		r.Artist,
-	)
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	if err := encoder.Encode(r); err != nil {
+		q.errCh <- err
+		return
+	}
+
+	// We are always sending to comms channel
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := q.sendToQueue(ctx, q.communicationQueue, buf.Bytes()); err != nil {
+			q.errCh <- err
+			return
+		}
+	}()
+
+	// We only send to distribution if the info is available
+	if len(r.Distribution) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := q.sendToQueue(ctx, q.distributionQueue, buf.Bytes()); err != nil {
+				q.errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
 }
 
-func newConnectedQueueClient() (*queueClient, error) {
-	// TODO: implement me
-	return &queueClient{}, nil
+func (q *queueClient) sendToQueue(ctx context.Context, queueName string, body []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err := q.publishMessage(ctx, queueName, body)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (q *queueClient) publishMessage(ctx context.Context, queueName string, body []byte) error {
+	ch, err := q.conn.Channel()
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("error occured trying to obtain channel for queue %s", queueName))
+	}
+
+	err = rabbitmq.DeclareQueue(ch, queueName)
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("unable to declare queue for queue name %s", queueName))
+	}
+
+	err = ch.PublishWithContext(ctx,
+		"",
+		queueName,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("sending message to %s timed out", queueName)
+	default:
+		if err != nil {
+			return fmt.Errorf("error publishing message to %s: %v", queueName, err)
+		}
+	}
+
+	return nil
+}
+
+func newConnectedQueueClient(rabbitMqUrl string, errCh chan<- error) (*queueClient, error) {
+
+	conn, err := rabbitmq.OpenConnection(rabbitMqUrl)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to rabbit %s", err)
+	}
+
+	return &queueClient{conn, "communication", "distribution", errCh}, nil
 }
 
 func main() {
@@ -42,14 +126,21 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	q, err := newConnectedQueueClient()
-	if err != nil {
-		return fmt.Errorf("error connecting queue client: %w", err)
+
+	rabbitMqUrl, ok := os.LookupEnv("RABBITMQ_SERVER_URL")
+
+	if !ok {
+		return errors.New("could not find RABBITMQ_SERVER_URL env var")
 	}
 
 	errC := make(chan error)
 	sigC := make(chan os.Signal)
 	relC := make(chan Release)
+
+	q, err := newConnectedQueueClient(rabbitMqUrl, errC)
+	if err != nil {
+		return fmt.Errorf("error connecting queue client: %w", err)
+	}
 
 	signal.Notify(sigC, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -68,6 +159,11 @@ func run(ctx context.Context) error {
 			return fmt.Errorf("error received: %w", err)
 		case <-sigC:
 			log.Println("cleaning up...")
+			close(errC)
+			close(relC)
+			if err := q.conn.Close(); err != nil {
+				log.Printf("error closing rabbitmq connection: %v", err)
+			}
 			return nil
 		}
 	}
@@ -76,7 +172,7 @@ func run(ctx context.Context) error {
 func runServer(addr string, hnd http.Handler) error {
 	log.Printf("listening on %s...", addr)
 
-	if err := http.ListenAndServe(addr, hnd); err != nil && err != http.ErrServerClosed {
+	if err := http.ListenAndServe(addr, hnd); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("server failed: %w", err)
 	}
 

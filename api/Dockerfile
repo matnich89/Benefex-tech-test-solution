@@ -1,5 +1,9 @@
 FROM golang:1.21 AS builder
 
+RUN mkdir -p /app/common
+
+COPY common/ /app/common/
+
 COPY api/ /app/api/
 
 WORKDIR /app/api
